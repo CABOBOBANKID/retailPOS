@@ -4,9 +4,11 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const money=v=>Number(v||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
 const units=['Piece','Meter','Roll','Bag','Box','Length','Kg','Litre','Pack'];
 const token=()=>localStorage.getItem(TOKEN);
+let lanBrand='Inventory';
+async function loadLanBrand(){try{const r=await fetch('/api/lan/branding',{cache:'no-store'});if(!r.ok)return;const d=await r.json();if(d.name){lanBrand=String(d.name).slice(0,80);document.title=`${lanBrand} - LAN Inventory`;document.querySelectorAll('.brand-name').forEach(n=>n.textContent=lanBrand)}}catch{}}
 
 function login(message=''){
- app.innerHTML=`<div class="card login"><h1>Azumah POS</h1><div class="muted">Offline LAN Inventory Manager</div>
+ app.innerHTML=`<div class="card login"><h1 class="brand-name">${esc(lanBrand)}</h1><div class="muted">Offline LAN Inventory Manager</div>
  ${message?`<div class="status show error">${esc(message)}</div>`:''}
  <label>LAN Access Code</label><input id="code" type="password" autocomplete="off" placeholder="Enter the code from the Main PC">
  <div class="actions"><button class="primary" id="loginBtn">Connect</button></div>
@@ -29,7 +31,7 @@ async function api(path,options={}){
 async function load(){
  if(!token())return login();
  app.innerHTML=`<div class="shell">
- <header><div><h1>Azumah POS — LAN Inventory</h1><div class="header-muted">Main PC database • Offline only</div></div><button class="ghost" id="logout">Logout</button></header>
+ <header><div><h1><span class="brand-name">${esc(lanBrand)}</span> - LAN Inventory</h1><div class="header-muted">Main PC database • Offline only</div></div><button class="ghost" id="logout">Logout</button></header>
  <div id="status" class="status"></div>
  <div class="grid"><section class="card"><div class="toolbar"><input id="search" placeholder="Search name, code or brand"><button class="secondary" id="refresh">Refresh</button></div><div id="products" class="list"></div></section>
  <section class="card"><h2 id="formTitle">Add Product</h2><div class="muted">Type the product details manually to create a product. Select a product and click Edit to change its details or price. Stock is changed separately through Restock.</div>
@@ -105,4 +107,5 @@ async function uploadExcel(){
  }catch(e){if(e.message!=='auth')show(e.message,true)}
 }
 function show(message,error=false){status.textContent=message;status.className='status show'+(error?' error':'')}
+loadLanBrand();
 if(token())load();else login();
