@@ -147,7 +147,7 @@ app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapGet("/healthz", () => Results.Ok(new { ok = true, service = "AzumahCloud.Api" }));
+app.MapGet("/healthz", (IWebHostEnvironment env) => Results.Ok(new { ok = true, service = "AzumahCloud.Api", dashboardFiles = env.WebRootPath is not null && File.Exists(Path.Combine(env.WebRootPath, "index.html")) }));
 
 app.MapGet("/readyz", async (CloudDbContext db) =>
 {
