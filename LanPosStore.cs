@@ -39,6 +39,19 @@ public sealed class LanPosStore
         command.ExecuteNonQuery();
     }
 
+    public string GetBusinessName()
+    {
+        try
+        {
+            using SqliteConnection db = Open();
+            using SqliteCommand cmd = db.CreateCommand();
+            cmd.CommandText = "SELECT StoreName FROM CompanySettings WHERE Id = 1 LIMIT 1";
+            string name = (cmd.ExecuteScalar() as string ?? "").Trim();
+            return name.Length == 0 ? "Inventory" : (name.Length > 80 ? name[..80] : name);
+        }
+        catch { return "Inventory"; }
+    }
+
     public List<LanProduct> GetProducts(string? search = null)
     {
         using SqliteConnection db = Open();

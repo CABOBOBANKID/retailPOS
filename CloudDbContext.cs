@@ -14,10 +14,12 @@ public sealed class CloudDbContext : DbContext
     public DbSet<CloudProduct> Products => Set<CloudProduct>();
     public DbSet<CloudCustomer> Customers => Set<CloudCustomer>();
     public DbSet<CloudSupplier> Suppliers => Set<CloudSupplier>();
+    public DbSet<CloudBusinessProfile> BusinessProfiles => Set<CloudBusinessProfile>();
     protected override void OnModelCreating(ModelBuilder b)
     {
         b.Entity<CloudUser>().HasIndex(x => x.Username).IsUnique();
         b.Entity<SyncRecord>().HasIndex(x => x.SyncId).IsUnique();
+        b.Entity<CloudBusinessProfile>().Property(x => x.Id).ValueGeneratedNever();
     }
 }
 public sealed class CloudUser { public int Id { get; set; } public string Username { get; set; } = ""; public string PasswordHash { get; set; } = ""; public string Role { get; set; } = "Owner"; public bool IsActive { get; set; } }
@@ -30,3 +32,5 @@ public sealed class CloudCustomer { public int Id { get; set; } public string Na
 public sealed class CloudSupplier { public int Id { get; set; } public string Name { get; set; } = ""; public string? Phone { get; set; } public decimal Balance { get; set; } }
 
 public sealed class CloudReturn { public int Id { get; set; } public string SyncId { get; set; } = ""; public int SaleId { get; set; } public int SaleItemId { get; set; } public int ProductId { get; set; } public decimal Quantity { get; set; } public decimal UnitPrice { get; set; } public decimal Amount { get; set; } public string Reason { get; set; } = ""; public string Disposition { get; set; } = ""; public string RefundMethod { get; set; } = ""; public string? Note { get; set; } public int UserId { get; set; } public DateTime CreatedAt { get; set; } }
+
+public sealed class CloudBusinessProfile { public int Id { get; set; } = 1; public string Name { get; set; } = ""; public string? Tagline { get; set; } public string? Phone { get; set; } public string? Address { get; set; } public string? CurrencySymbol { get; set; } }

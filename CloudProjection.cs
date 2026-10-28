@@ -45,8 +45,29 @@ public static class CloudProjection
                 break;
         }
     }
+    public static string CleanText(string? value, int max)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return "";
+        var cleaned = new string(value.Where(c => !char.IsControl(c)).ToArray()).Trim();
+        return cleaned.Length > max ? cleaned[..max].Trim() : cleaned;
+    }
+
+    public static async Task UpsertBusinessProfileAsync(CloudDbContext db, BusinessProfileSnapshot? snapshot)
+    {
+        string name = CleanText(snapshot?.Name, 80);
+        if (snapshot is null || name.Length == 0) return;
+        var profile = await db.BusinessProfiles.SingleOrDefaultAsync(x => x.Id == 1);
+        if (profile is null) { profile = new CloudBusinessProfile { Id = 1 }; db.BusinessProfiles.Add(profile); }
+        profile.Name = name;
+        profile.Tagline = CleanText(snapshot.Tagline, 160);
+        profile.Phone = CleanText(snapshot.Phone, 40);
+        profile.Address = CleanText(snapshot.Address, 200);
+        profile.CurrencySymbol = CleanText(snapshot.CurrencySymbol, 8);
+    }
+
     public static async Task ReplaceMasterDataAsync(CloudDbContext db, BootstrapRequest request)
     {
+        await UpsertBusinessProfileAsync(db, request.Business);
         await db.Products.ExecuteDeleteAsync(); await db.Customers.ExecuteDeleteAsync(); await db.Suppliers.ExecuteDeleteAsync();
         foreach (var p in request.Products) db.Products.Add(new CloudProduct { Id = p.Id, Name = p.Name, StockQuantity = p.StockQuantity, ReorderLevel = p.ReorderLevel, Unit = p.Unit });
         foreach (var c in request.Customers) db.Customers.Add(new CloudCustomer { Id = c.Id, Name = c.Name, Phone = c.Phone, Balance = c.Balance });
