@@ -6,6 +6,7 @@ using System.Threading.RateLimiting;
 using System.Collections.Concurrent;
 using System.Globalization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -24,6 +25,17 @@ builder.Services.AddDbContext<CloudDbContext>(options =>
     if (usePostgres) options.UseNpgsql(connectionString);
     else options.UseSqlite(connectionString);
 });
+if (builder.Configuration.GetValue("ForwardedHeaders:Enabled", false))
+{
+    // Behind a trusted platform proxy (Railway): use the real client IP for rate limiting and the real scheme for URLs.
+    builder.Services.Configure<ForwardedHeadersOptions>(o =>
+    {
+        o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+        o.KnownNetworks.Clear();
+        o.KnownProxies.Clear();
+        o.ForwardLimit = 1;
+    });
+}
 var lanEnabled = builder.Configuration.GetValue("LanAccess:Enabled", true);
 
 builder.Services.AddCors(options => options.AddPolicy("ConfiguredOrigins", policy =>
@@ -93,6 +105,7 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<CloudDbContext>();
     db.Database.EnsureCreated();
+    db.Database.ExecuteSqlRaw("CREATE TABLE IF NOT EXISTS \"BusinessProfiles\" (\"Id\" INTEGER NOT NULL PRIMARY KEY, \"Name\" TEXT NOT NULL, \"Tagline\" TEXT NULL, \"Phone\" TEXT NULL, \"Address\" TEXT NULL, \"CurrencySymbol\" TEXT NULL)");
     var passwordService = scope.ServiceProvider.GetRequiredService<PasswordService>();
     var username = builder.Configuration["Owner:Username"] ?? "owner";
     var initialPassword = builder.Configuration["Owner:InitialPassword"] ?? "";
@@ -117,6 +130,8 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+if (app.Configuration.GetValue("ForwardedHeaders:Enabled", false)) app.UseForwardedHeaders();
 
 app.Use(async (ctx, next) =>
 {
@@ -146,6 +161,43 @@ app.MapGet("/readyz", async (CloudDbContext db) =>
     {
         return Results.Json(new { ok = false, error = "Database unavailable" }, statusCode: StatusCodes.Status503ServiceUnavailable);
     }
+});
+
+app.MapGet("/api/branding", async (CloudDbContext db) =>
+{
+    var profile = await db.BusinessProfiles.AsNoTracking().SingleOrDefaultAsync(x => x.Id == 1);
+    return Results.Ok(new { name = string.IsNullOrWhiteSpace(profile?.Name) ? "Owner Dashboard" : profile!.Name, tagline = profile?.Tagline ?? "" });
+});
+
+app.MapGet("/api/manifest", async (HttpContext http, CloudDbContext db, IConfiguration config, string? origin) =>
+{
+    var profile = await db.BusinessProfiles.AsNoTracking().SingleOrDefaultAsync(x => x.Id == 1);
+    string name = string.IsNullOrWhiteSpace(profile?.Name) ? "Owner Dashboard" : profile!.Name;
+    string shortName = name.Length <= 12 ? name : name[..12].Trim();
+    string self = $"{http.Request.Scheme}://{http.Request.Host}";
+    var allowed = (config.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>())
+        .Select(x => x.TrimEnd('/')).Append(self).ToHashSet(StringComparer.OrdinalIgnoreCase);
+    string baseUrl = !string.IsNullOrWhiteSpace(origin) && allowed.Contains(origin.TrimEnd('/')) ? origin.TrimEnd('/') : self;
+    var manifest = new
+    {
+        id = baseUrl + "/",
+        name = name + " Owner",
+        short_name = shortName,
+        description = "Private, read-only business monitoring for " + name + ".",
+        start_url = baseUrl + "/",
+        scope = baseUrl + "/",
+        display = "standalone",
+        orientation = "portrait-primary",
+        background_color = "#f5f8f5",
+        theme_color = "#12372a",
+        icons = new object[]
+        {
+            new { src = baseUrl + "/icons/icon-192.png", sizes = "192x192", type = "image/png", purpose = "any maskable" },
+            new { src = baseUrl + "/icons/icon-512.png", sizes = "512x512", type = "image/png", purpose = "any maskable" },
+            new { src = baseUrl + "/icons/icon.svg", sizes = "any", type = "image/svg+xml", purpose = "any" }
+        }
+    };
+    return Results.Json(manifest, contentType: "application/manifest+json");
 });
 
 app.MapPost("/api/auth/login", async (LoginRequest request, CloudDbContext db, PasswordService passwords, IConfiguration config) =>
@@ -293,6 +345,8 @@ app.MapGet("/api/lan/health", (LanPosStore store) =>
     store.EnsureReady();
     return Results.Ok(new { ok = true, mode = "offline-lan", database = "Main POS database" });
 });
+
+app.MapGet("/api/lan/branding", (LanPosStore store) => Results.Ok(new { name = store.GetBusinessName() }));
 
 app.MapPost("/api/lan/login", (HttpContext http, LanLoginRequest request) =>
 {
@@ -457,7 +511,8 @@ public record LanLoginRequest(string AccessCode);
 record LoginRequest(string Username, string Password);
 record SyncPushRequest(List<SyncItem> Items);
 public record SyncItem(string SyncId, string EntityType, int EntityId, string PayloadJson);
-public record BootstrapRequest(List<ProductSnapshot> Products, List<CustomerSnapshot> Customers, List<SupplierSnapshot> Suppliers);
+public record BusinessProfileSnapshot(string Name, string? Tagline, string? Phone, string? Address, string? CurrencySymbol);
+public record BootstrapRequest(List<ProductSnapshot> Products, List<CustomerSnapshot> Customers, List<SupplierSnapshot> Suppliers, BusinessProfileSnapshot? Business = null);
 public record ProductSnapshot(int Id, string Name, decimal StockQuantity, decimal ReorderLevel, string Unit);
 public record CustomerSnapshot(int Id, string Name, string? Phone, decimal Balance);
 public record SupplierSnapshot(int Id, string Name, string? Phone, decimal Balance);
