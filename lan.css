@@ -1,0 +1,22 @@
+:root{font-family:Segoe UI,Arial,sans-serif;color:#17202a;background:#f4f6f5}
+*{box-sizing:border-box}body{margin:0}.shell{max-width:1280px;margin:auto;padding:20px}
+header{background:#14532d;color:#fff;border-radius:14px;padding:18px 20px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;gap:15px}
+h1,h2{margin:0 0 12px}h1{font-size:22px}.muted{color:#667085;font-size:13px}.header-muted{color:#d1fae5}
+.card{background:#fff;border:1px solid #dde3df;border-radius:12px;padding:16px;box-shadow:0 2px 8px #0000000a}
+.login{max-width:420px;margin:9vh auto;padding:24px}.login h1{color:#14532d}
+.grid{display:grid;grid-template-columns:minmax(300px,1fr) minmax(320px,420px);gap:16px}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}.toolbar input{flex:1;min-width:180px}
+input,select{width:100%;padding:10px 11px;border:1px solid #cbd5cf;border-radius:8px;background:#fff;font:inherit}
+label{font-size:13px;font-weight:600;margin:10px 0 5px;display:block}
+button{border:0;border-radius:8px;padding:10px 14px;font:inherit;font-weight:600;cursor:pointer}
+.primary{background:#14532d;color:#fff}.secondary{background:#e8efeb;color:#14532d}.danger{background:#b42318;color:#fff}.ghost{background:#fff;color:#14532d;border:1px solid #cbd5cf}
+.row{display:grid;grid-template-columns:1.6fr 1fr .8fr .9fr auto;gap:10px;align-items:center;padding:11px 6px;border-bottom:1px solid #edf0ee}
+.row.head{font-size:12px;font-weight:700;color:#667085;background:#f8faf9;position:sticky;top:0}
+.list{max-height:62vh;overflow:auto;border:1px solid #e4e9e5;border-radius:8px}
+.badge{display:inline-block;padding:4px 7px;border-radius:999px;background:#e8efeb;font-size:12px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}.full{grid-column:1/-1}
+.actions{display:flex;gap:8px;margin-top:15px;flex-wrap:wrap}
+.status{margin:10px 0;padding:10px;border-radius:8px;background:#eef7f1;display:none}.status.show{display:block}.error{background:#fff0f0;color:#a61b1b}
+.drop{border:2px dashed #cbd5cf;border-radius:10px;padding:20px;text-align:center;margin-top:10px}
+.small{font-size:12px}.spinner{opacity:.6;pointer-events:none}
+@media(max-width:850px){.grid{grid-template-columns:1fr}.row{grid-template-columns:1.4fr .8fr .8fr auto}.row .hide-mobile{display:none}.shell{padding:10px}}

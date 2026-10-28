@@ -1,0 +1,17 @@
+{
+  "id": "/",
+  "name": "Azumah Enterprise Owner",
+  "short_name": "Azumah Owner",
+  "description": "Private, read-only business monitoring for Azumah Enterprise POS.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f5f8f5",
+  "theme_color": "#12372a",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
