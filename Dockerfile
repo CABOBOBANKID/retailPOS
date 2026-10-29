@@ -6,6 +6,8 @@ COPY . .
 RUN mkdir -p wwwroot/icons \
  && for f in index.html app.js app.css service-worker.js lan.html lan.js lan.css Restock_Template.xlsx; do \
       if [ -f "$f" ] && [ ! -f "wwwroot/$f" ]; then cp "$f" "wwwroot/$f"; fi; done \
+ && for f in apple-touch-icon.png; do \
+      if [ -f "$f" ] && [ ! -f "wwwroot/$f" ]; then cp "$f" "wwwroot/$f"; fi; done \
  && for f in icon-192.png icon-512.png icon.svg; do \
       if [ -f "$f" ] && [ ! -f "wwwroot/icons/$f" ]; then cp "$f" "wwwroot/icons/$f"; fi; done \
  && rm -f wwwroot/manifest.webmanifest \
@@ -20,5 +22,6 @@ RUN useradd -r -u 10001 appuser && chown -R appuser /app
 USER appuser
 ENV ASPNETCORE_ENVIRONMENT=Production \
     LanAccess__Enabled=false \
+    RequirePostgres=true \
     ForwardedHeaders__Enabled=true
 CMD ["sh", "-c", "export Kestrel__Endpoints__Http__Url=http://0.0.0.0:${PORT:-8080}; exec dotnet AzumahCloud.Api.dll"]
