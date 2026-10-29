@@ -127,6 +127,13 @@ using (var scope = app.Services.CreateScope())
                 db.Database.ExecuteSqlRaw(db.Database.GenerateCreateScript());
             }
         }
+        try
+        {
+            db.Database.ExecuteSqlRaw(usePostgres
+                ? "ALTER TABLE \"Sales\" ADD COLUMN IF NOT EXISTS \"ReturnedAmount\" numeric NOT NULL DEFAULT 0"
+                : "ALTER TABLE \"Sales\" ADD COLUMN \"ReturnedAmount\" TEXT NOT NULL DEFAULT '0'");
+        }
+        catch { }
         db.Database.ExecuteSqlRaw("CREATE TABLE IF NOT EXISTS \"BusinessProfiles\" (\"Id\" INTEGER NOT NULL PRIMARY KEY, \"Name\" TEXT NOT NULL, \"Tagline\" TEXT NULL, \"Phone\" TEXT NULL, \"Address\" TEXT NULL, \"CurrencySymbol\" TEXT NULL)");
     }
     catch (Exception ex)
@@ -256,7 +263,8 @@ app.MapGet("/api/dashboard", async (CloudDbContext db) =>
     var recent = await db.Sales.OrderByDescending(x => x.CreatedAt).Take(10).Select(x => new
     {
         x.InvoiceNumber, x.CreatedAt, x.Total, x.AmountPaid,
-        Balance = x.Total - x.AmountPaid,
+        x.ReturnedAmount,
+        Balance = x.Total - x.ReturnedAmount - x.AmountPaid,
         x.PaymentMethod
     }).ToListAsync();
     var low = (await db.Products.Where(x => x.StockQuantity <= x.ReorderLevel).ToListAsync()).OrderBy(x => x.StockQuantity).Take(20).ToList();
@@ -270,7 +278,7 @@ app.MapGet("/api/dashboard", async (CloudDbContext db) =>
         salesToday = salesToday.Sum(x => x.Total),
         cashToday = salesToday.Where(x => x.PaymentMethod == "Cash").Sum(x => x.AmountPaid),
         mobileMoneyToday = salesToday.Where(x => x.PaymentMethod == "MobileMoney").Sum(x => x.AmountPaid),
-        creditToday = salesToday.Sum(x => Math.Max(0, x.Total - x.AmountPaid)),
+        creditToday = salesToday.Sum(x => Math.Max(0, x.Total - x.ReturnedAmount - x.AmountPaid)),
         transactionCount = salesToday.Count,
         customerDebt = customerDebt.Sum(x => x.Balance),
         supplierDebt = supplierDebt.Sum(x => x.Balance),
@@ -540,7 +548,8 @@ record LoginRequest(string Username, string Password);
 record SyncPushRequest(List<SyncItem> Items);
 public record SyncItem(string SyncId, string EntityType, int EntityId, string PayloadJson);
 public record BusinessProfileSnapshot(string Name, string? Tagline, string? Phone, string? Address, string? CurrencySymbol);
-public record BootstrapRequest(List<ProductSnapshot> Products, List<CustomerSnapshot> Customers, List<SupplierSnapshot> Suppliers, BusinessProfileSnapshot? Business = null);
+public record SaleSnapshot(int Id, string SyncId, string InvoiceNumber, DateTime CreatedAt, decimal Total, decimal AmountPaid, decimal ReturnedAmount, string PaymentMethod, string State);
+public record BootstrapRequest(List<ProductSnapshot> Products, List<CustomerSnapshot> Customers, List<SupplierSnapshot> Suppliers, BusinessProfileSnapshot? Business = null, List<SaleSnapshot>? Sales = null);
 public record ProductSnapshot(int Id, string Name, decimal StockQuantity, decimal ReorderLevel, string Unit);
 public record CustomerSnapshot(int Id, string Name, string? Phone, decimal Balance);
 public record SupplierSnapshot(int Id, string Name, string? Phone, decimal Balance);

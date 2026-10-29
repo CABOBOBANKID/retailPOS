@@ -56,6 +56,33 @@ public static class CloudProjection
         };
     }
 
+    public static async Task UpsertSalesAsync(CloudDbContext db, List<SaleSnapshot>? sales)
+    {
+        if (sales is null || sales.Count == 0) return;
+        var syncIds = sales.Where(x => !string.IsNullOrWhiteSpace(x.SyncId)).Select(x => x.SyncId).ToList();
+        var existing = await db.Sales.Where(x => syncIds.Contains(x.SyncId)).ToDictionaryAsync(x => x.SyncId);
+        foreach (var snap in sales)
+        {
+            if (string.IsNullOrWhiteSpace(snap.SyncId) || snap.SyncId.Length > 100) continue;
+            bool voided = string.Equals(snap.State, "Voided", StringComparison.OrdinalIgnoreCase);
+            if (existing.TryGetValue(snap.SyncId, out var row))
+            {
+                if (voided) { db.Sales.Remove(row); continue; }
+                row.Total = snap.Total; row.AmountPaid = snap.AmountPaid; row.ReturnedAmount = snap.ReturnedAmount;
+            }
+            else if (!voided)
+            {
+                db.Sales.Add(new CloudSale
+                {
+                    SyncId = snap.SyncId, Id = snap.Id, InvoiceNumber = CleanText(snap.InvoiceNumber, 60),
+                    CreatedAt = snap.CreatedAt.Kind == DateTimeKind.Local ? snap.CreatedAt.ToUniversalTime() : DateTime.SpecifyKind(snap.CreatedAt, DateTimeKind.Utc),
+                    Total = snap.Total, AmountPaid = snap.AmountPaid, ReturnedAmount = snap.ReturnedAmount,
+                    PaymentMethod = CleanText(snap.PaymentMethod, 30)
+                });
+            }
+        }
+    }
+
     public static string CleanText(string? value, int max)
     {
         if (string.IsNullOrWhiteSpace(value)) return "";
@@ -80,6 +107,7 @@ public static class CloudProjection
     {
         await UpsertBusinessProfileAsync(db, request.Business);
         await db.Products.ExecuteDeleteAsync(); await db.Customers.ExecuteDeleteAsync(); await db.Suppliers.ExecuteDeleteAsync();
+        await UpsertSalesAsync(db, request.Sales);
         foreach (var p in request.Products) db.Products.Add(new CloudProduct { Id = p.Id, Name = p.Name, StockQuantity = p.StockQuantity, ReorderLevel = p.ReorderLevel, Unit = p.Unit });
         foreach (var c in request.Customers) db.Customers.Add(new CloudCustomer { Id = c.Id, Name = c.Name, Phone = c.Phone, Balance = c.Balance });
         foreach (var s in request.Suppliers) db.Suppliers.Add(new CloudSupplier { Id = s.Id, Name = s.Name, Phone = s.Phone, Balance = s.Balance });
