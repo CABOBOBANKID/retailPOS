@@ -12,15 +12,15 @@ public static class CloudProjection
         {
             case "Sale":
                 if (!await db.Sales.AnyAsync(x => x.SyncId == item.SyncId))
-                    db.Sales.Add(new CloudSale { SyncId = item.SyncId, Id = root.GetProperty("Id").GetInt32(), InvoiceNumber = root.GetProperty("InvoiceNumber").GetString() ?? "", CreatedAt = root.GetProperty("CreatedAt").GetDateTime(), Total = root.GetProperty("Total").GetDecimal(), AmountPaid = root.GetProperty("AmountPaid").GetDecimal(), PaymentMethod = root.GetProperty("PaymentMethod").GetString() ?? "" });
+                    db.Sales.Add(new CloudSale { SyncId = item.SyncId, Id = root.GetProperty("Id").GetInt32(), InvoiceNumber = root.GetProperty("InvoiceNumber").GetString() ?? "", CreatedAt = Utc(root.GetProperty("CreatedAt")), Total = root.GetProperty("Total").GetDecimal(), AmountPaid = root.GetProperty("AmountPaid").GetDecimal(), PaymentMethod = root.GetProperty("PaymentMethod").GetString() ?? "" });
                 break;
             case "Payment":
                 if (!await db.Payments.AnyAsync(x => x.SyncId == item.SyncId))
-                    db.Payments.Add(new CloudPayment { SyncId = item.SyncId, Id = root.GetProperty("Id").GetInt32(), PartyType = root.GetProperty("PartyType").GetInt32(), PartyId = root.GetProperty("PartyId").GetInt32(), Amount = root.GetProperty("Amount").GetDecimal(), BalanceAfter = root.GetProperty("BalanceAfter").GetDecimal(), CreatedAt = root.GetProperty("CreatedAt").GetDateTime() });
+                    db.Payments.Add(new CloudPayment { SyncId = item.SyncId, Id = root.GetProperty("Id").GetInt32(), PartyType = root.GetProperty("PartyType").GetInt32(), PartyId = root.GetProperty("PartyId").GetInt32(), Amount = root.GetProperty("Amount").GetDecimal(), BalanceAfter = root.GetProperty("BalanceAfter").GetDecimal(), CreatedAt = Utc(root.GetProperty("CreatedAt")) });
                 break;
             case "Expense":
                 if (!await db.Expenses.AnyAsync(x => x.SyncId == item.SyncId))
-                    db.Expenses.Add(new CloudExpense { SyncId = item.SyncId, Id = root.GetProperty("Id").GetInt32(), Amount = root.GetProperty("Amount").GetDecimal(), Category = root.GetProperty("Category").GetInt32(), Note = root.TryGetProperty("Note", out var note) ? note.GetString() : null, CreatedAt = root.GetProperty("CreatedAt").GetDateTime() });
+                    db.Expenses.Add(new CloudExpense { SyncId = item.SyncId, Id = root.GetProperty("Id").GetInt32(), Amount = root.GetProperty("Amount").GetDecimal(), Category = root.GetProperty("Category").GetInt32(), Note = root.TryGetProperty("Note", out var note) ? note.GetString() : null, CreatedAt = Utc(root.GetProperty("CreatedAt")) });
                 break;            case "Return":
                 if (!await db.Returns.AnyAsync(x => x.SyncId == item.SyncId))
                 {
@@ -39,12 +39,23 @@ public static class CloudProjection
                         RefundMethod = root.GetProperty("RefundMethod").GetString() ?? "",
                         Note = root.TryGetProperty("Note", out var returnNote) ? returnNote.GetString() : null,
                         UserId = root.GetProperty("UserId").GetInt32(),
-                        CreatedAt = root.GetProperty("CreatedAt").GetDateTime()
+                        CreatedAt = Utc(root.GetProperty("CreatedAt"))
                     });
                 }
                 break;
         }
     }
+    private static DateTime Utc(JsonElement element)
+    {
+        DateTime value = element.GetDateTime();
+        return value.Kind switch
+        {
+            DateTimeKind.Utc => value,
+            DateTimeKind.Local => value.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(value, DateTimeKind.Utc)
+        };
+    }
+
     public static string CleanText(string? value, int max)
     {
         if (string.IsNullOrWhiteSpace(value)) return "";
