@@ -117,6 +117,16 @@ using (var scope = app.Services.CreateScope())
     try
     {
         db.Database.EnsureCreated();
+        if (usePostgres)
+        {
+            // EnsureCreated skips table creation when the database already holds other schemas' tables (Supabase auth/storage).
+            int hasUsers = db.Database.SqlQueryRaw<int>("SELECT COUNT(*)::int AS \"Value\" FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'Users'").AsEnumerable().First();
+            if (hasUsers == 0)
+            {
+                db.Database.ExecuteSqlRaw("DROP TABLE IF EXISTS \"BusinessProfiles\"");
+                db.Database.ExecuteSqlRaw(db.Database.GenerateCreateScript());
+            }
+        }
         db.Database.ExecuteSqlRaw("CREATE TABLE IF NOT EXISTS \"BusinessProfiles\" (\"Id\" INTEGER NOT NULL PRIMARY KEY, \"Name\" TEXT NOT NULL, \"Tagline\" TEXT NULL, \"Phone\" TEXT NULL, \"Address\" TEXT NULL, \"CurrencySymbol\" TEXT NULL)");
     }
     catch (Exception ex)
