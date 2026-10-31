@@ -270,14 +270,19 @@ app.MapGet("/api/dashboard", async (CloudDbContext db) =>
     var low = (await db.Products.Where(x => x.StockQuantity <= x.ReorderLevel).ToListAsync()).OrderBy(x => x.StockQuantity).Take(20).ToList();
     var customerDebt = (await db.Customers.Where(x => x.Balance > 0).ToListAsync()).OrderByDescending(x => x.Balance).Take(20).ToList();
     var supplierDebt = (await db.Suppliers.Where(x => x.Balance > 0).ToListAsync()).OrderByDescending(x => x.Balance).Take(20).ToList();
+    var returnsToday = await db.Returns.Where(x => x.CreatedAt >= today && x.CreatedAt < tomorrow).ToListAsync();
+    var refundsToday = returnsToday.Sum(x => x.Amount);
+    var cashRefundsToday = returnsToday.Where(x => x.RefundMethod == "Cash").Sum(x => x.Amount);
+    var momoRefundsToday = returnsToday.Where(x => x.RefundMethod == "Mobile Money").Sum(x => x.Amount);
     var expenseToday = (await db.Expenses.Where(x => x.CreatedAt >= today && x.CreatedAt < tomorrow).ToListAsync()).Sum(x => x.Amount);
 
     return Results.Ok(new
     {
         date = today,
-        salesToday = salesToday.Sum(x => x.Total),
-        cashToday = salesToday.Where(x => x.PaymentMethod == "Cash").Sum(x => x.AmountPaid),
-        mobileMoneyToday = salesToday.Where(x => x.PaymentMethod == "MobileMoney").Sum(x => x.AmountPaid),
+        salesToday = salesToday.Sum(x => x.Total) - refundsToday,
+        refundsToday,
+        cashToday = salesToday.Where(x => x.PaymentMethod == "Cash").Sum(x => x.AmountPaid) - cashRefundsToday,
+        mobileMoneyToday = salesToday.Where(x => x.PaymentMethod == "MobileMoney").Sum(x => x.AmountPaid) - momoRefundsToday,
         creditToday = salesToday.Sum(x => Math.Max(0, x.Total - x.ReturnedAmount - x.AmountPaid)),
         transactionCount = salesToday.Count,
         customerDebt = customerDebt.Sum(x => x.Balance),
