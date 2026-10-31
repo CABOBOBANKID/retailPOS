@@ -328,14 +328,19 @@ app.MapPost("/api/sync/push", async (SyncPushRequest request, CloudDbContext db)
     if (request.Items.Count > 500)
         return Results.BadRequest(new { error = "A sync batch cannot exceed 500 items." });
 
-    var allowedTypes = new HashSet<string>(StringComparer.Ordinal) { "Sale", "Payment", "Expense", "Return" };
-    foreach (var item in request.Items)
-    {
-        if (item is null || string.IsNullOrWhiteSpace(item.SyncId) || item.SyncId.Length > 100
-            || !allowedTypes.Contains(item.EntityType ?? "")
-            || string.IsNullOrWhiteSpace(item.PayloadJson) || item.PayloadJson.Length > 1_000_000)
-            return Results.BadRequest(new { error = "A sync item is missing required fields or exceeds allowed limits." });
-    }
+   var allowedTypes = new HashSet<string>(StringComparer.Ordinal) { "Sale", "Payment", "Expense", "Return" };
+for (int i = 0; i < request.Items.Count; i++)
+{
+    var item = request.Items[i];
+    string? reason = null;
+    if (item is null) reason = "null item";
+    else if (string.IsNullOrWhiteSpace(item.SyncId) || item.SyncId.Length > 100) reason = "invalid SyncId";
+    else if (!allowedTypes.Contains(item.EntityType ?? "")) reason = "unsupported EntityType";
+    else if (string.IsNullOrWhiteSpace(item.PayloadJson)) reason = "empty PayloadJson";
+    else if (item.PayloadJson.Length > 1_000_000) reason = "PayloadJson too large";
+    if (reason is not null)
+        return Results.BadRequest(new { error = "Invalid sync item.", index = i, entityType = item?.EntityType is { Length: <= 40 } t ? t : null, reason });
+}
 
     await using var transaction = await db.Database.BeginTransactionAsync();
     int accepted = 0;
